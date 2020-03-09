@@ -146,13 +146,13 @@ def UpdateEta(reads, s_k, E):
     eta_out=np.zeros((4,4))
     # print("Reads: Update Eta", reads)
     # print("S: Update Eta",s_k)
-    # print("E: Update Eta",E)
+    print("E: Update Eta", E)
     # print(len(reads))
     for i in range(0,len(reads)):
         eta_num = np.zeros((4, 4))
         #relevantE=E[i]
-        relevantE=E[i]
-        print("relevant E", relevantE)
+        relevantE=E[i][0]
+        # print("relevant E", relevantE)
         read=reads[i]
         for p in range(0,len(read)):
             readBase=code[read[p]]
@@ -205,12 +205,13 @@ code={"A":0, "C":1, "G":2, "T":3 }
 reads = []
 qualities = []
 pie = np.ndarray.tolist(np.random.dirichlet(np.ones(K)))
-eta=GenEta()
-s=GenS(reads)
+
 for record in SeqIO.parse("test.txt", "fastq"):
 
     reads.append(str(record.seq))
     qualities.append(record.letter_annotations["phred_quality"])
+eta=GenEta()
+s=GenS(reads)
 
 # Run EM algorithm
 E="none"
@@ -232,7 +233,7 @@ for t in range(0, 10):
     # print("Second E Step:", E)
     # M2Step:
     pie=UpdatePi(E)
-    # print(E)
+    print("Estep: Number 2", E)
     eta=UpdateEta(reads, s[1], E)
 
 # Output True sequences and proportions in FASTA
