@@ -1,20 +1,33 @@
 import numpy as np
 from Bio import SeqIO
 
-
-K=2
+K=12
 code={"A":0, "C":1, "G":2, "T":3 }
 
-reads = np.empty(0,dtype='str')
+# reads = np.empty(0,dtype='str')
+#
+# qualities=np.empty(0, dtype=int)
+# for record in SeqIO.parse("TestData.fastq", "fastq"):
+#     print(record.seq)
+#     reads = np.append(reads, str(record.seq))
+#     temp=np.array(record.letter_annotations["phred_quality"])
+#     qualities=np.append(qualities, temp, 1)
 
-qualities=np.empty(0, dtype=int)
-for record in SeqIO.parse("TestData.fastq", "fastq"):
-    print(record.seq)
+reads = np.empty(0,dtype=str)
+qualities = np.empty(0, dtype=int)
+n = len(list(SeqIO.parse("test.txt", "fastq")))
+qualities = np.empty(n, dtype = list)
+index = 0
+
+for record in SeqIO.parse("test.txt", "fastq"):
+
     reads = np.append(reads, str(record.seq))
-    temp=np.array(record.letter_annotations["phred_quality"])
-    qualities=np.append(qualities, temp, 1)
-print(reads)
-print(qualities)
+    quality = np.array(record.letter_annotations["phred_quality"])
+    # qualities = np.append(qualities, quality)
+    qualities[index] = quality
+    index += 1
+print(reads[0])
+
 pie =  np.random.dirichlet(np.ones(K),size=1)
 def GenEta():
     eta_out = np.zeros((4,4))
@@ -68,10 +81,15 @@ def EstepNumerator(pie_k, eta, s_k, read, q_i):
         a=code[s_kp]
         b=code[r_ip]
         q_ip=q_i[p]
+        # print("quality", q_ip)
         if r_ip == s_kp:
             e_ik*=(1-10**(-q_ip/10))*pie_k
+            # print("Eik: True", e_ik)
         else:
             e_ik*=(10**(-q_ip/10)*eta[a][b])*pie_k
+            # print("Eik:False", e_ik)
+
+    print(type(e_ik))
     return e_ik
 
 def Estep(pie, eta, reads, qualities, s):
@@ -89,16 +107,24 @@ def Estep(pie, eta, reads, qualities, s):
         esum=0
         logsum=0
         E_i = np.zeros(K)
+        # E_i = np.empty(0)
         read=reads[i]
         quality=qualities[i]
         for k in range(0,K):
-            E_i[k] = EstepNumerator(pie[k], eta, s[k],  read, quality)
-            esum+=E_i[k]
+            print("r", list(quality))
+            print("ENum", EstepNumerator(pie[k], eta, s[k],  read, quality))
+            E_i[k] = EstepNumerator(pie[k], eta, str(s[k]),  str(read), list(quality))
+            # E_i = np.append(E_i, EstepNumerator(pie[k], eta, s[k],  read, quality),axis=0)
+            print("ENd", E_i)
+
+            esum += E_i[k]
         E_it=E_i/esum
         logsum += np.log(esum)
         E_t[i] = E_it
-        print(logsum)
+        # print(logsum)
     return np.asarray(E_t)
+
+
 def UpdatePi(E):
     """
     M step update function for pi
@@ -111,6 +137,7 @@ def UpdatePi(E):
         relevantEsum=np.sum(relevantEs)
         outPie[k]=relevantEsum/len(reads)
     return outPie
+
 
 def UpdateEta(reads, s_k, E):
 
@@ -160,11 +187,11 @@ def UpdateS(reads, qualities, E, eta):
 E="none"
 
 for t in range(0, 10):
-    print("Iteration "+str(t)+":\n")
-    print("E = ", E)
-    print("pie = ",pie)
-    print("eta = ",eta)
-    print("s= ", s)
+    # print("Iteration "+str(t)+":\n")
+    # print("E = ", E)
+    # print("pie = ",pie)
+    # print("eta = ",eta)
+    # print("s= ", s)
     #Estep:
     E=Estep(pie, eta, reads, qualities, s)
     #M1Step:
