@@ -1,8 +1,8 @@
 import numpy as np
 from Bio import SeqIO
 
-K=12
-code={"A":0, "C":1, "G":2, "T":3 }
+# K=2
+# code={"A":0, "C":1, "G":2, "T":3 }
 
 # reads = np.empty(0,dtype='str')
 #
@@ -13,23 +13,12 @@ code={"A":0, "C":1, "G":2, "T":3 }
 #     temp=np.array(record.letter_annotations["phred_quality"])
 #     qualities=np.append(qualities, temp, 1)
 
-reads = np.empty(0,dtype=str)
-qualities = np.empty(0, dtype=int)
-n = len(list(SeqIO.parse("test.txt", "fastq")))
-qualities = np.empty(n, dtype = list)
-index = 0
 
-for record in SeqIO.parse("test.txt", "fastq"):
-
-    reads = np.append(reads, str(record.seq))
-    quality = np.array(record.letter_annotations["phred_quality"])
-    # qualities = np.append(qualities, quality)
-    qualities[index] = quality
-    index += 1
-print(reads[0])
-
-pie =  np.random.dirichlet(np.ones(K),size=1)
 def GenEta():
+    """
+    Generate first guess at Eta Matrix
+    :return:
+    """
     eta_out = np.zeros((4,4))
     for i in range(0,4):
         eta_temp = np.random.dirichlet(np.ones(3), size=1)
@@ -37,17 +26,26 @@ def GenEta():
             eta_out[i]=np.append(eta_temp, 0)
         else:
             eta_out[i]=np.insert(eta_temp, i, 0, 1)
+    eta_out = np.ndarray.tolist(eta_out)
     return eta_out
-eta=GenEta()
+# eta=GenEta()
+
 
 def GenS(reads):
+    """
+    Generate First guess at true sequences
+    :param reads:
+    :return:
+    """
     s_out=np.empty(0,dtype="str")
     for i in range(0, K):
         x=np.random.randint(0, len(reads))
         s_out=np.append(s_out, reads[x])
+    s_out = np.ndarray.tolist(s_out)
     return s_out
 
-s=GenS(reads)
+# s=GenS(reads)
+
 
 #Test Data:
 # K=2
@@ -59,8 +57,6 @@ s=GenS(reads)
 #      [0.3, 0.3, 0, 0.4],
 #      [0.3, 0.3, 0.4, 0]]
 # s=["TTTT", "CCCC"]
-
-
 
 
 def EstepNumerator(pie_k, eta, s_k, read, q_i):
@@ -81,15 +77,13 @@ def EstepNumerator(pie_k, eta, s_k, read, q_i):
         a=code[s_kp]
         b=code[r_ip]
         q_ip=q_i[p]
-        # print("quality", q_ip)
+
         if r_ip == s_kp:
             e_ik*=(1-10**(-q_ip/10))*pie_k
-            # print("Eik: True", e_ik)
+
         else:
             e_ik*=(10**(-q_ip/10)*eta[a][b])*pie_k
-            # print("Eik:False", e_ik)
 
-    print(type(e_ik))
     return e_ik
 
 def Estep(pie, eta, reads, qualities, s):
@@ -102,6 +96,7 @@ def Estep(pie, eta, reads, qualities, s):
     :param s: vector of true sequences
     :return: matrix containing all e_ik
     """
+    # print("E STEP:")
     E_t = np.ndarray((len(reads), K))
     for i in range(0, len(reads)):
         esum=0
@@ -111,17 +106,17 @@ def Estep(pie, eta, reads, qualities, s):
         read=reads[i]
         quality=qualities[i]
         for k in range(0,K):
-            print("r", list(quality))
-            print("ENum", EstepNumerator(pie[k], eta, s[k],  read, quality))
-            E_i[k] = EstepNumerator(pie[k], eta, str(s[k]),  str(read), list(quality))
-            # E_i = np.append(E_i, EstepNumerator(pie[k], eta, s[k],  read, quality),axis=0)
-            print("ENd", E_i)
 
+            E_i[k] = EstepNumerator(pie[k], eta, str(s[k]),  str(read), list(quality))
+            # print("E Step: k", k)
+            # print(E_i[k])
             esum += E_i[k]
+
         E_it=E_i/esum
         logsum += np.log(esum)
+
         E_t[i] = E_it
-        # print(logsum)
+
     return np.asarray(E_t)
 
 
@@ -140,12 +135,24 @@ def UpdatePi(E):
 
 
 def UpdateEta(reads, s_k, E):
+    """
+
+    :param reads:
+    :param s_k:
+    :param E:
+    :return:
+    """
 
     eta_out=np.zeros((4,4))
-
+    # print("Reads: Update Eta", reads)
+    # print("S: Update Eta",s_k)
+    # print("E: Update Eta",E)
+    # print(len(reads))
     for i in range(0,len(reads)):
         eta_num = np.zeros((4, 4))
-        relevantE=E[i][1]
+        #relevantE=E[i]
+        relevantE=E[i]
+        print("relevant E", relevantE)
         read=reads[i]
         for p in range(0,len(read)):
             readBase=code[read[p]]
@@ -154,9 +161,16 @@ def UpdateEta(reads, s_k, E):
                 continue
             else:
                 eta_num[trueBase][readBase] += 1
+
         eta_out+=(eta_num*relevantE)
+        # print("Numerator", eta_num)
+        # print("relevantE", relevantE)
+    # print(eta_out)
+    # print(eta_out[:])
+    # print(np.sum(eta_out, axis=1))
 
     eta_out=eta_out[:]/np.sum(eta_out,axis=1)
+
     return eta_out
 
 
@@ -182,8 +196,23 @@ def UpdateS(reads, qualities, E, eta):
         sNew=np.append(sNew, s_kNew)
     return sNew
 
+## Main ##
 
+# Intiailize Best guess at iteration 0
+K=2
+code={"A":0, "C":1, "G":2, "T":3 }
+# Import Fastq
+reads = []
+qualities = []
+pie = np.ndarray.tolist(np.random.dirichlet(np.ones(K)))
+eta=GenEta()
+s=GenS(reads)
+for record in SeqIO.parse("test.txt", "fastq"):
 
+    reads.append(str(record.seq))
+    qualities.append(record.letter_annotations["phred_quality"])
+
+# Run EM algorithm
 E="none"
 
 for t in range(0, 10):
@@ -192,23 +221,29 @@ for t in range(0, 10):
     # print("pie = ",pie)
     # print("eta = ",eta)
     # print("s= ", s)
-    #Estep:
+    # Estep:
     E=Estep(pie, eta, reads, qualities, s)
-    #M1Step:
+    # print("First E Step:", E)
+    # M1Step:
     pie=UpdatePi(E)
     s=UpdateS(reads, qualities, E, eta)
-    #Estep
+    # Estep
     E=Estep(pie, eta, reads, qualities, s)
-    #M2Step:
+    # print("Second E Step:", E)
+    # M2Step:
     pie=UpdatePi(E)
+    # print(E)
     eta=UpdateEta(reads, s[1], E)
 
-"""
-PseudoCode:
+# Output True sequences and proportions in FASTA
+fh = open('Output_FASTA.fasta', 'w')
+for i in range(0,K):
+    fh.write(">TrueSeq:")
+    fh.write(str(i))
+    fh.write(" ")
+    fh.write(str(pie[i]))
+    fh.write("\n")
+    fh.write(s[i])
+    fh.write("\n")
 
-MainEstep:
-    
-    for k in K:
-        
-        
-"""
+fh.close()
