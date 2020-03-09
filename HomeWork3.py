@@ -26,7 +26,7 @@ def GenEta():
             eta_out[i]=np.append(eta_temp, 0)
         else:
             eta_out[i]=np.insert(eta_temp, i, 0, 1)
-    eta_out = np.ndarray.tolist(eta_out)
+    # eta_out = np.ndarray.tolist(eta_out)
     return eta_out
 # eta=GenEta()
 
@@ -196,15 +196,38 @@ def UpdateS(reads, qualities, E, eta):
         sNew=np.append(sNew, s_kNew)
     return sNew
 
+def Convergence(pieNew, pieOld, etaNew, etaOld):
+    """
+    
+    :param pieNew:
+    :param pieOld:
+    :param etaNew:
+    :param etaOld:
+    :return:
+    """
+    global pie_is_con
+    global eta_is_con
+    # Test Pie
+    if max(pieNew - pieOld) < 10**(-6):
+        pie_is_con = True
+
+    if np.max(etaNew - etaOld) < 10**(-6):
+        eta_is_con = True
+
+    return pie_is_con and eta_is_con
+
+
+
+
 ## Main ##
 
 # Intiailize Best guess at iteration 0
-K=2
+K=12
 code={"A":0, "C":1, "G":2, "T":3 }
 # Import Fastq
 reads = []
 qualities = []
-pie = np.ndarray.tolist(np.random.dirichlet(np.ones(K)))
+pie = np.random.dirichlet(np.ones(K))
 
 for record in SeqIO.parse("test.txt", "fastq"):
 
@@ -215,8 +238,14 @@ s=GenS(reads)
 
 # Run EM algorithm
 E="none"
-
-for t in range(0, 10):
+pie_is_con = False
+eta_is_con = False
+# seq_is_con = False
+pieOld = [0]*K
+pieNew = pie
+etaOld = [[0,0,0,0]]*4
+etaNew= eta
+while(Convergence(pieNew, pieOld, etaNew, etaOld)):
     # print("Iteration "+str(t)+":\n")
     # print("E = ", E)
     # print("pie = ",pie)
@@ -233,14 +262,15 @@ for t in range(0, 10):
     # print("Second E Step:", E)
     # M2Step:
     pie=UpdatePi(E)
-    print("Estep: Number 2", E)
+
     eta=UpdateEta(reads, s[1], E)
+
 
 # Output True sequences and proportions in FASTA
 fh = open('Output_FASTA.fasta', 'w')
 for i in range(0,K):
     fh.write(">TrueSeq:")
-    fh.write(str(i))
+    fh.write(str(i+1))
     fh.write(" ")
     fh.write(str(pie[i]))
     fh.write("\n")
